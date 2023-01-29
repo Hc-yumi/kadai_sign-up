@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+
+  <a href="http://localhost:8080/showpage">Result pageへ</a>
+  <form action="http://localhost:8080/book" enctype="multipart/form-data" method="post">
+  <table>
+    <tr>
+      <th>書籍名</th>
+      <th>書籍URL<th>
+      <th>書籍コメント</th>
+      <th>画像アップロード</th>
+    </tr>
+
+    <tr>
+      <td> <p><input type="text" name="bookName" size="20"></p></td>
+      <td> <p><input type="text" name="bookUrl" size="20"></p></td>
+      <td><textarea name="bookcomment" rows="4" cols="40">コメントを記入</textarea></td>
+      <td><input type="file" name="image" id="upload"></td>
+    </tr>
+  </table>
+    <input type="submit" value="送信">
+  
+  </form>
+
+  <!-- <form action="http://localhost:8080/upload" enctype="multipart/form-data" method="post"> -->
+  <!-- <input type="file" name="image" id="upload"> -->
+    <!-- <input type="submit" value="送信"> -->
+  <!-- </form> -->
+
+
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+
+
+
+  <table border='2'>
+    <tr>
+      <th>ID</th>
+      <th>画像(image_url)</th>
+      <th>書籍名(bookname)</th>
+      <th>書籍URL(bookUrl)</th>
+      <th>書籍のコメント(comment)</th>
+      <th>保存時間(time)</th>
+    </tr>
+
+    <!-- range.  Books  レコードを呼んでくるときに付けた名前 main.goの75行目 -->
+    <!-- グローバル変数的な扱い。 .○○ 箱の中のどれかを指す-->
+
+
+    <tr>
+          <td><p>{{.Selects.ID }}</p></td>
+          <td><img src= {{ .Selects.ImageURL }} /></td>
+          <td><input type="text" id="bookname" value="{{ .Selects.Bookname }}"></td>
+          <td><input type="text" id="URL" value="{{ .Selects.URL }}"></td>
+          <td><input type="text" id="comment" value=" {{ .Selects.Comment }}"></td>
+          <td><p>{{ .Selects.Time }}</p></td>
+    </tr>
+  </table>
+
+  <button onclick="runUpdate(this.id)" id="{{.Selects.ID }}">更新</button>
+
+  <form action="{{ .UpdateURL}}" enctype="multipart/form-data" method="post">
+    <input type="file" name="image" id="upload">
+    <input type="submit" value="更新">
+  </form>
+
+
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script> 
+  <script type="text/javascript" >
+    function runUpdate(id){
+      console.log("OK");
+      let data = {
+        // "image_url":document.getElementById('image_url').value,
+        "bookname":document.getElementById('bookname').value,
+        "URL":document.getElementById('URL').value,
+        "Comment":document.getElementById('comment').value,
+        }
+
+      $.ajax({
+            type: 'PUT',
+            url: 'http://localhost:8080/bookupdate/'+id,
+            contentType: 'application/json',
+            enctype: 'multipart/form-data',
+            data: JSON.stringify(data),  // access in body
+
+            success: function(msg) {
+                alert("success");
+                window.location.href = 'http://localhost:8080/showpage'; // 通常の遷移
+                window.open('http://localhost:8080/showpage', '_blank');
+            },
+            error: function (request, status, error) {
+              console.log(request);
+                alert(error);
+            }
+        });
+    };
+
+    function runUpdateImage(id){
+      
+    }
+  
+  </script>
+
+</body>
+</html>
