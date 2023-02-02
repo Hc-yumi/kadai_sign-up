@@ -3,48 +3,32 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/url"
-
-	_ "crypto/sha256"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	// **画像で使用↓**//
-	"bytes"
-	"encoding/base64"
-	"image"
-	"image/jpeg"
-	"text/template"
-
-	"github.com/nfnt/resize"
-
-	//** 画像で使用↑**//
-	"github.com/google/uuid"
-
-	_ "database/sql"
 	"encoding/gob"
-	_ "image/png"
+	//**signup**//
+	
+	_ "github.com/jinzhu/gorm"
+	_"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv/autoload"
 
-	_ "github.com/go-sql-driver/mysql"
+	//**login**//
+	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
+	"github.com/mattn/go-colorable"
 	"golang.org/x/crypto/bcrypt"
 
-	_ "github.com/gin-gonic/contrib/static"
-	"github.com/mattn/go-colorable"
-	_ "github.com/olahol/go-imageupload"
-
-	_ "encoding/base64"
 	"io"
-	_ "io/ioutil"
 	"os"
-	_ "path/filepath"
-	_ "strings"
 )
 
 // HTMLからリクエスト来た時にGo内でそのデータが受け取れるようにこのStructを用意する。
+// **login**//
 type LoginUser struct {
 	Name string
 	Hash string
@@ -72,7 +56,7 @@ type Record struct {
 	ImageURL string
 }
 
-// loginで使用
+// loginで使用?
 type User struct {
 	ID        string
 	Username  string
@@ -83,6 +67,50 @@ type User struct {
 	verHash   string
 	timeout   string
 }
+
+// **sign upで使用  Users モデルの宣言**//
+type Users struct {
+	gorm.Model
+	Username string `form:"name" binding:"required" gorm:"unique;not null"`
+	Password string `form:"password" binding:"required"`
+}
+
+type UsersRecord struct {
+	Username string
+	Password string
+}
+
+
+// // **sign up ユーザー登録処理**//
+// func gormConnect() *gorm.DB {
+// 	err := godotenv.Load()
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	DBMS := os.Getenv("mytweet_DBMS")
+// 	USER := os.Getenv("mytweet_USER")
+// 	PASS := os.Getenv("mytweet_PASS")
+// 	DBNAME := os.Getenv("mytweet_DBNAME")
+// 	CONNECT := USER + ":" + PASS + "@/" + DBNAME + "?parseTime=true"
+// 	db, err := gorm.Open(DBMS, CONNECT)
+// 	if err != nil {
+// 		panic(err.Error())
+// 	}
+// 	return db
+// }
+
+// func createUser(username string, password string) []error {
+// 	passwordEncrypt, _ := crypto.PasswordEncrypt(password)
+// 	db := gormConnect()
+// 	defer db.Close()
+// 	// Insert処理
+// 	if err := db.Create(&User{Username: username, Password: passwordEncrypt}).GetErrors(); err != nil {
+// 		return err
+// 	}
+// 	return nil
+
+// }
+
 
 // ******* login機能 Userモデルの宣言********//
 var conn *gorm.DB
@@ -180,64 +208,6 @@ func getUserByUsername(c *gin.Context, name string) (bool, string) {
 	return true, records[0].Hash
 }
 
-// *************画像関係*************//
-// fileの表示(かえってくるところ)//
-func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	dir, err := os.Open("images/")
-	defer dir.Close()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	allImageNames, err := dir.Readdirnames(-1) // それぞれの画像ファイルの名前を配列に格納
-	if err != nil {
-		log.Fatalln("No files")
-	}
-	var decodeAllImages []image.Image
-	for _, imageName := range allImageNames { // 全ての画像をデコード、リサイズしてdecodeAllImageseに格納
-		file, _ := os.Open("images/" + imageName)
-		defer file.Close()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		decodeImage, _, err := image.Decode(file)
-		resizedDecodeImage := resize.Resize(300, 0, decodeImage, resize.Lanczos3) // サイズを揃えるために横幅を300に固定
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		decodeAllImages = append(decodeAllImages, resizedDecodeImage)
-	}
-	writeImageWithTemplate(w, decodeAllImages)
-}
-
-// writeImageWithTemplateで画像をエンコード**//
-func writeImageWithTemplate(w http.ResponseWriter, decodeAllImages []image.Image) {
-	var encordImages []string
-	for _, decodeImage := range decodeAllImages {
-		buffer := new(bytes.Buffer)
-		if err := jpeg.Encode(buffer, decodeImage, nil); err != nil {
-			log.Fatalln("Unable to encode image.")
-		}
-		str := base64.StdEncoding.EncodeToString(buffer.Bytes())
-		encordImages = append(encordImages, str)
-	}
-	data := map[string]interface{}{"Images": encordImages}
-	renderTemplate(w, data)
-}
-
-// renderTemplateで渡された画像をテンプレートエンジンに渡す。
-func renderTemplate(w http.ResponseWriter, data interface{}) {
-	var templates = template.Must(template.ParseFiles("temp/show.html"))
-	if err := templates.ExecuteTemplate(w, "show.html", data); err != nil {
-		log.Fatalln("Unable to execute template.")
-	}
-
-	// location := url.URL{Path: "/showpage"}
-	// c.Redirect(http.StatusFound, location.RequestURI())
-}
-
 func main() {
 	// まずはデータベースに接続する。(パスワードは各々異なる)
 	dsn := "host=localhost user=postgres password=Hach8686 dbname=test port=5432 sslmode=disable TimeZone=Asia/Tokyo"
@@ -246,12 +216,6 @@ func main() {
 		// エラーでたらプロセス終了
 		log.Fatalf("Some error occured. Err: %s", err)
 	}
-
-	/*
-	 * APIサーバーの設定をする。
-	 * rはrouterの略で何のAPIを用意するかを定義する。
-	 * postpage　GET、/showpage　GET、/user　POST
-	 */
 
 	// カラーテーブル？
 	gin.DefaultWriter = colorable.NewColorableStdout()
@@ -271,6 +235,59 @@ func main() {
 		panic(err.Error())
 	}
 
+	//**signup**//
+
+	// ユーザー登録
+	r.POST("/signup", func(c *gin.Context) {
+		var form Users
+		// バリデーション処理
+		if err := c.Bind(&form); err != nil {
+			fmt.Print(err.Error())
+			c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err})
+			c.Abort()
+		}
+		dbc := conn.Raw(
+			"insert into users(name,hash) values(?, ?)",
+			form.Username, form.Password).Scan(&form)
+		if dbc.Error != nil {
+			fmt.Print(dbc.Error)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+
+	})
+
+	// else {
+	// 	username := c.PostForm("username")
+	// 	password := c.PostForm("password")
+	// 	// 登録ユーザーが重複していた場合にはじく処理
+	// 	if err := createUser(username, password); err != nil {
+	// 		c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err})
+	// 	}
+	// 	c.Redirect(302, "/")
+	// }
+
+	// ユーザー登録画面
+	r.GET("/signup", func(c *gin.Context) {
+
+		c.HTML(200, "signup.html", gin.H{})
+
+		var form []UsersRecord
+		dbc := conn.Raw("SELECT name,hash FROM users").Scan(&form)
+		if dbc.Error != nil {
+			fmt.Print(dbc.Error)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+
+		c.HTML(http.StatusOK, "signup.html", gin.H{
+			"Users": form,
+		})
+	})
+
+	//*****sign up*****//
+
+	//****login機能はじめ*****//
 	authRouter := r.Group("/user", auth)
 
 	r.GET("/", indexHandler)
@@ -279,27 +296,13 @@ func main() {
 
 	authRouter.GET("/profile", profileHandler)
 
-	// ************login 機能終了***********************//
+	// ****login 機能終了******//
 
 	// POST用のページ（post.html）を返す。
 	// c.HTMLというのはこのAPIのレスポンスとしてHTMLファイルを返すよ、という意味
 	r.GET("/postpage", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "post.html", gin.H{})
 	})
-
-	//******** 画像アップロード********//
-	// r.POST("/upload", func(c *gin.Context) {
-	//   // 画像の保存
-	//   image, _, _ := c.Request.FormFile("image")
-	//   // saveFile, _ := os.Create("./images/sample.jpeg")
-	// 	saveFile, _ := os.Create("./images/" + header.Filename)
-	//   defer saveFile.Close()
-	//   io.Copy(saveFile, image)
-
-	// 	location := url.URL{Path: "/showpage"}
-	// 	c.Redirect(http.StatusFound, location.RequestURI())
-	// })
-	//******** 画像アップロードおわり********//
 
 	// 結果を表示するページを返す。
 	r.GET("/showpage", func(c *gin.Context) {
@@ -323,15 +326,9 @@ func main() {
 			return
 		}
 
-		// for idx := range records {
-		// 	// records[idx].ImageURL = "/images/sample.jpeg"
-		// 	records[idx].ImageURL = ""
-		// }
-
 		c.HTML(http.StatusOK, "show.html", gin.H{
 			"Books": records,
 		})
-
 	})
 
 	// データを登録するAPI。POST用のページ（post.html）の内部で送信ボタンを押すと呼ばれるAPI。
@@ -347,7 +344,7 @@ func main() {
 		var record Record
 		image, _, _ := c.Request.FormFile("image")
 		filePath := "/images/" + uuid.New().String() + ".jpeg"
-		saveFile, _ := os.Create("."+filePath)
+		saveFile, _ := os.Create("." + filePath)
 		defer saveFile.Close()
 		io.Copy(saveFile, image)
 
@@ -378,12 +375,6 @@ func main() {
 		}
 
 		var record Record
-		// image, _, _ := c.Request.FormFile("image")
-		// filePath := "./images/" + uuid.New().String() + ".jpeg"
-		// saveFile, _ := os.Create(filePath)
-		// defer saveFile.Close()
-		// io.Copy(saveFile, image)
-
 		dbc := conn.Raw(
 			"UPDATE booklist SET bookname=?, url=?, comment=? where id=?",
 			book.Name, book.URL, book.Comment, id).Scan(&record)
@@ -397,18 +388,11 @@ func main() {
 	//*** PUT (画像のUpdate)****//
 	r.POST("/bookupdate/image/:id", func(c *gin.Context) {
 		id := c.Param("id")
-		// fmt.Println("id is ", id)
-		// var book BookmarkJson
-		// if err := c.ShouldBind(&book); err != nil {
-		// 	fmt.Print(err.Error())
-		// 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid argument"})
-		// 	return
-		// }
 
 		var record Record
 		image, _, _ := c.Request.FormFile("image")
 		filePath := "/images/" + uuid.New().String() + ".jpeg"
-		saveFile, _ := os.Create("."+filePath)
+		saveFile, _ := os.Create("." + filePath)
 		defer saveFile.Close()
 		io.Copy(saveFile, image)
 
@@ -487,15 +471,11 @@ func main() {
 		}
 
 		c.HTML(http.StatusOK, "select.html", gin.H{
-			"Selects": records[0],
-			"UpdateURL":"http://localhost:8080/bookupdate/image/"+id,
+			"Selects":   records[0],
+			"UpdateURL": "http://localhost:8080/bookupdate/image/" + id,
 		})
 	})
 
-	// サーバーを立ち上げた瞬間は一旦ここまで実行されてListening状態となる。
-	// r.POST( や　r.GET(　等の関数はAPIが呼ばれる度に実行される。
-	// http.HandleFunc("/", IndexHandlerr)
-	// http.ListenAndServe(":8080", nil)
 	r.Static("/images", "./images")
 	fmt.Println("server is up")
 
