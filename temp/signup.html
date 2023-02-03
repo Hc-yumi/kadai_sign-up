@@ -9,8 +9,14 @@
 <body>
 
   <h1>SIGNUP</h1>
+
+  {{if .message}}
+    <h5>{{.message}}</h5>
+  {{end}}
+
+
   <form method="POST" action="/signup">
-    <p>ユーザー名： <input type="text" name="name" /></p>
+    <p>ユーザー名： <input type="text" name="username" /></p>
     <p>パスワード： <input type="password" name="password" /></p>
     <p><input type="submit" value="新規会員登録" /> 
         <a href="/"><input type="button" value="戻る" /></a></p>

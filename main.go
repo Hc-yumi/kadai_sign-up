@@ -6,18 +6,19 @@ import (
 	"net/http"
 	"net/url"
 
+	"example.com/crypto"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	"encoding/gob"
 	//**signup**//
-	
+
 	_ "github.com/jinzhu/gorm"
-	_"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv"
 	_ "github.com/joho/godotenv/autoload"
 
-	//**login**//
+	//**login & signup**//
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"github.com/mattn/go-colorable"
@@ -71,15 +72,14 @@ type User struct {
 // **sign upで使用  Users モデルの宣言**//
 type Users struct {
 	gorm.Model
-	Username string `form:"name" binding:"required" gorm:"unique;not null"`
+	Username string `form:"username" binding:"required" gorm:"unique;not null"`
 	Password string `form:"password" binding:"required"`
 }
 
 type UsersRecord struct {
 	Username string
-	Password string
+	passwordEncrypt string
 }
-
 
 // // **sign up ユーザー登録処理**//
 // func gormConnect() *gorm.DB {
@@ -99,20 +99,39 @@ type UsersRecord struct {
 // 	return db
 // }
 
-// func createUser(username string, password string) []error {
-// 	passwordEncrypt, _ := crypto.PasswordEncrypt(password)
-// 	db := gormConnect()
-// 	defer db.Close()
-// 	// Insert処理
-// 	if err := db.Create(&User{Username: username, Password: passwordEncrypt}).GetErrors(); err != nil {
-// 		return err
-// 	}
-// 	return nil
+// ******signup機能関数*****//
 
-// }
+// ユーザー登録処理
+func createUser(username string, password string) error {
+	passwordEncrypt, _ := crypto.PasswordEncrypt(password)
+	// // Insert処理
+	// if err := db.Create(&User{Username: username, Password: passwordEncrypt}).GetErrors(); err != nil {
+	// 	return err
+	// }
+	// return nil
+
+	var form LoginUser
+	// flag, _ := getUserByUsername(form.name)
+	// if flag != false {
+	// 	fmt.Println("error 既に登録済み")
+	// 	return err
+	// }
 
 
-// ******* login機能 Userモデルの宣言********//
+	dbc := conn.Raw(
+		"insert into users(name,password) values(?, ?)",
+		username, passwordEncrypt).Scan(&form)
+	if dbc.Error != nil {
+		fmt.Print(dbc.Error)
+		return dbc.Error
+	}
+
+	return nil
+}
+
+// ******signup機能関数おわり*****//
+
+// ******* login機能関数 ********//
 var conn *gorm.DB
 var err error
 
@@ -208,6 +227,8 @@ func getUserByUsername(c *gin.Context, name string) (bool, string) {
 	return true, records[0].Hash
 }
 
+//*****login機能関数おわり*****//
+
 func main() {
 	// まずはデータベースに接続する。(パスワードは各々異なる)
 	dsn := "host=localhost user=postgres password=Hach8686 dbname=test port=5432 sslmode=disable TimeZone=Asia/Tokyo"
@@ -217,7 +238,6 @@ func main() {
 		log.Fatalf("Some error occured. Err: %s", err)
 	}
 
-	// カラーテーブル？
 	gin.DefaultWriter = colorable.NewColorableStdout()
 	r := gin.Default()
 	// ginに対して、使うHTMLのテンプレートがどこに置いてあるかを知らせる。
@@ -237,6 +257,22 @@ func main() {
 
 	//**signup**//
 
+	// ユーザー登録画面 //
+	r.GET("/signup", func(c *gin.Context) {
+		c.HTML(200, "signup.html", gin.H{})
+		// var form []UsersRecord
+		// dbc := conn.Raw("SELECT name,password FROM users").Scan(&form)
+		// if dbc.Error != nil {
+		// 	fmt.Print(dbc.Error)
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		// 	return
+		// }
+
+		// c.HTML(http.StatusOK, "signup.html", gin.H{
+		// 	"Users": form,
+		// })
+	})
+
 	// ユーザー登録
 	r.POST("/signup", func(c *gin.Context) {
 		var form Users
@@ -245,47 +281,36 @@ func main() {
 			fmt.Print(err.Error())
 			c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err})
 			c.Abort()
+		} else {
+			username := c.PostForm("username")
+			password := c.PostForm("password")
+			// 登録ユーザーが重複していた場合にはじく処理
+			if err := createUser(username, password); err != nil {
+
+				c.HTML(http.StatusBadRequest, "signup.html", gin.H{"message": "username is already registerd"})
+				return
+
+				// c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err})
+			}
+			c.Redirect(302, "/")
 		}
-		dbc := conn.Raw(
-			"insert into users(name,hash) values(?, ?)",
-			form.Username, form.Password).Scan(&form)
-		if dbc.Error != nil {
-			fmt.Print(dbc.Error)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-			return
-		}
+
+		location := url.URL{Path: "/postpage"}
+		c.Redirect(http.StatusFound, location.RequestURI())
 
 	})
 
-	// else {
-	// 	username := c.PostForm("username")
-	// 	password := c.PostForm("password")
-	// 	// 登録ユーザーが重複していた場合にはじく処理
-	// 	if err := createUser(username, password); err != nil {
-	// 		c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err})
-	// 	}
-	// 	c.Redirect(302, "/")
+	// 入れるならelseの上//
+	// dbc := conn.Raw(
+	// 	"insert into users(name,password) values(?, ?)",
+	// 	form.Username, form.Password).Scan(&form)
+	// if dbc.Error != nil {
+	// 	fmt.Print(dbc.Error)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+	// 	return
 	// }
 
-	// ユーザー登録画面
-	r.GET("/signup", func(c *gin.Context) {
-
-		c.HTML(200, "signup.html", gin.H{})
-
-		var form []UsersRecord
-		dbc := conn.Raw("SELECT name,hash FROM users").Scan(&form)
-		if dbc.Error != nil {
-			fmt.Print(dbc.Error)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-			return
-		}
-
-		c.HTML(http.StatusOK, "signup.html", gin.H{
-			"Users": form,
-		})
-	})
-
-	//*****sign up*****//
+	//*****sign upおわり*****//
 
 	//****login機能はじめ*****//
 	authRouter := r.Group("/user", auth)
