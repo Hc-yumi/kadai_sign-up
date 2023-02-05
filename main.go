@@ -63,10 +63,6 @@ type User struct {
 	Username  string
 	Email     string
 	pswdHash  string
-	CreatedAt string
-	Active    string
-	verHash   string
-	timeout   string
 }
 
 // **sign upで使用  Users モデルの宣言**//
@@ -81,42 +77,13 @@ type UsersRecord struct {
 	passwordEncrypt string
 }
 
-// // **sign up ユーザー登録処理**//
-// func gormConnect() *gorm.DB {
-// 	err := godotenv.Load()
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	DBMS := os.Getenv("mytweet_DBMS")
-// 	USER := os.Getenv("mytweet_USER")
-// 	PASS := os.Getenv("mytweet_PASS")
-// 	DBNAME := os.Getenv("mytweet_DBNAME")
-// 	CONNECT := USER + ":" + PASS + "@/" + DBNAME + "?parseTime=true"
-// 	db, err := gorm.Open(DBMS, CONNECT)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	return db
-// }
-
 // ******signup機能関数*****//
 
 // ユーザー登録処理
 func createUser(username string, password string) error {
 	passwordEncrypt, _ := crypto.PasswordEncrypt(password)
-	// // Insert処理
-	// if err := db.Create(&User{Username: username, Password: passwordEncrypt}).GetErrors(); err != nil {
-	// 	return err
-	// }
-	// return nil
 
 	var form LoginUser
-	// flag, _ := getUserByUsername(form.name)
-	// if flag != false {
-	// 	fmt.Println("error 既に登録済み")
-	// 	return err
-	// }
-
 
 	dbc := conn.Raw(
 		"insert into users(name,password) values(?, ?)",
@@ -126,9 +93,14 @@ func createUser(username string, password string) error {
 		return dbc.Error
 	}
 
+	// if len(records) == 0 {
+	// 	// no user data
+	// 	return false, ""
+	// }
+	// return true, records[0].Hash
+
 	return nil
 }
-
 // ******signup機能関数おわり*****//
 
 // ******* login機能関数 ********//
